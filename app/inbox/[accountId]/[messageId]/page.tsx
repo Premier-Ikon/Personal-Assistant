@@ -44,6 +44,7 @@ export default function MessagePage() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [working, setWorking] = useState("");
+  const [pendingTag, setPendingTag] = useState("");
   const [confirmRun, setConfirmRun] = useState(false);
 
   const load = useCallback(async () => {
@@ -121,6 +122,7 @@ export default function MessagePage() {
   async function assignTag(actionType: string) {
     if (!token || !message) return;
     setWorking("tag");
+    setPendingTag(actionType);
     setError("");
     setNotice("");
     try {
@@ -139,7 +141,11 @@ export default function MessagePage() {
       setNotice(
         result.actionPlan
           ? `Tagged as ${result.actionPlan.typeLabel}. ${
-              result.actionPlan.type === "address_change" ? "The address workflow is ready to execute." : "The workflow is on this email."
+              result.actionPlan.type === "address_change"
+                ? result.actionPlan.extractedAddress?.address1
+                  ? "The shipping address was pulled from this email."
+                  : "The address workflow is ready — add the street if it is still empty."
+                : "The workflow is on this email."
             }`
           : "Workflow tag cleared."
       );
@@ -147,6 +153,7 @@ export default function MessagePage() {
       setError(err instanceof Error ? err.message : "Could not assign that tag");
     } finally {
       setWorking("");
+      setPendingTag("");
     }
   }
 
@@ -243,6 +250,7 @@ export default function MessagePage() {
           <ActionTagSelect
             value={plan?.type || "none"}
             disabled={Boolean(working) || !message}
+            busy={working === "tag"}
             onChange={assignTag}
           />
           <button className="primary" disabled={Boolean(working) || !message} onClick={generate}>
@@ -255,7 +263,8 @@ export default function MessagePage() {
       {busy ? <p className="status" style={{ paddingTop: 12 }}>Opening email…</p> : null}
       {message ? (
         <div className="workbench">
-          <section className="panel">
+          <section className="panel mail-pane">
+            <p className="pane-kicker">Incoming</p>
             <h2>{message.subject || "(no subject)"}</h2>
             <div className="email-meta">
               <div>From {message.from}</div>
@@ -263,8 +272,22 @@ export default function MessagePage() {
             </div>
             <div className="email-body">{message.bodyText || message.snippet}</div>
           </section>
-          <section className="panel">
-            <h2>Assistant</h2>
+          <section className="panel assistant-pane">
+            {working === "tag" ? (
+              <div className="work-overlay" aria-live="polite">
+                <div className="work-overlay-card">
+                  <span className="spinner" />
+                  Reading this email
+                  <span>
+                    {pendingTag === "address_change"
+                      ? "Pulling the shipping address into the form for your team."
+                      : "Updating the workflow on this thread."}
+                  </span>
+                </div>
+              </div>
+            ) : null}
+            <p className="pane-kicker">Assistant</p>
+            <h2>Reply</h2>
             {draft.provider ? (
               <p className="snippet" style={{ marginTop: -4, marginBottom: 14 }}>
                 Drafted with{" "}

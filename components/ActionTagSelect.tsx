@@ -15,20 +15,25 @@ export default function ActionTagSelect({
   value,
   disabled,
   compact,
+  busy,
   onChange,
 }: {
   value?: string | null;
   disabled?: boolean;
   compact?: boolean;
+  busy?: boolean;
   onChange: (actionType: string) => void;
 }) {
   return (
-    <label className={`tag-select ${compact ? "compact" : ""} ${value && value !== "none" ? "tagged" : ""}`} onClick={(event) => event.stopPropagation()}>
+    <label
+      className={`tag-select ${compact ? "compact" : ""} ${value && value !== "none" ? "tagged" : ""} ${busy ? "busy" : ""}`}
+      onClick={(event) => event.stopPropagation()}
+    >
       <span className="sr-only">Workflow tag</span>
       <select
         className="ops-select tag-select-input"
         value={value || "none"}
-        disabled={disabled}
+        disabled={disabled || busy}
         aria-label="Workflow tag"
         onClick={(event) => event.stopPropagation()}
         onChange={(event) => onChange(event.target.value)}
@@ -39,6 +44,7 @@ export default function ActionTagSelect({
           </option>
         ))}
       </select>
+      {busy ? <span className="spinner small select-spinner" aria-hidden="true" /> : null}
     </label>
   );
 }

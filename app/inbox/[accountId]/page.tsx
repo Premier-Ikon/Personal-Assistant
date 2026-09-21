@@ -19,6 +19,7 @@ export default function InboxPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [tagging, setTagging] = useState("");
+  const [taggingType, setTaggingType] = useState("");
 
   const loadInbox = useCallback((quiet = false) => {
     if (!token || !accountId) return Promise.resolve();
@@ -50,6 +51,7 @@ export default function InboxPage() {
   async function assignTag(message: MailMessage, actionType: string) {
     if (!token) return;
     setTagging(message.id);
+    setTaggingType(actionType);
     setError("");
     try {
       const result = await apiRequest<{ actionPlan: ActionPlan | null }>(token, {
@@ -67,6 +69,7 @@ export default function InboxPage() {
       setError(err instanceof Error ? err.message : "Could not assign that tag");
     } finally {
       setTagging("");
+      setTaggingType("");
     }
   }
 
@@ -93,7 +96,13 @@ export default function InboxPage() {
       ) : null}
       <div className="inbox-list">
         {messages.map((message) => (
-          <div className={`row-card message-row ${message.unread ? "unread" : ""}`} key={message.id}>
+          <div className={`row-card message-row ${message.unread ? "unread" : ""} ${tagging === message.id ? "tagging" : ""}`} key={message.id}>
+            {tagging === message.id ? (
+              <div className="row-busy" aria-live="polite">
+                <span className="spinner small" />
+                {taggingType === "address_change" ? "Reading this email for the shipping address…" : "Updating workflow…"}
+              </div>
+            ) : null}
             <Link href={`/inbox/${accountId}/${message.id}`} className="message-row-main">
               <div className="from">{message.from}</div>
               <h3>{message.subject || "(no subject)"}</h3>
@@ -103,8 +112,9 @@ export default function InboxPage() {
               {message.draftReady ? <span className="badge ok">Draft ready</span> : null}
               <ActionTagSelect
                 compact
+                busy={tagging === message.id}
                 value={message.actionPlan?.type || "none"}
-                disabled={tagging === message.id}
+                disabled={Boolean(tagging)}
                 onChange={(actionType) => assignTag(message, actionType)}
               />
               <div className="meta" style={{ color: "var(--muted)", fontSize: 12 }}>
