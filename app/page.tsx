@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import RequireAuth from "../components/RequireAuth";
 import { MailAccount, apiRequest } from "../lib/api";
 import { useAuth } from "../lib/AuthProvider";
+import { useDraftsSynced } from "../lib/draftsSync";
 
 export default function DashboardPage() {
   const { token } = useAuth();
@@ -17,17 +18,30 @@ export default function DashboardPage() {
   const [footerDraft, setFooterDraft] = useState("");
   const [savingFooter, setSavingFooter] = useState(false);
 
-  useEffect(() => {
-    if (!token) return;
-    setBusy(true);
-    apiRequest<{ accounts: MailAccount[]; gmailConfigured?: boolean }>(token, { action: "listAccounts" })
+  const loadAccounts = useCallback((quiet = false) => {
+    if (!token) return Promise.resolve();
+    if (!quiet) setBusy(true);
+    return apiRequest<{ accounts: MailAccount[]; gmailConfigured?: boolean }>(token, { action: "listAccounts" })
       .then((result) => {
         setAccounts(result.accounts || []);
         setGmailConfigured(result.gmailConfigured !== false);
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Could not load clients"))
-      .finally(() => setBusy(false));
+      .finally(() => {
+        if (!quiet) setBusy(false);
+      });
   }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    loadAccounts();
+  }, [token, loadAccounts]);
+
+  const refreshAccounts = useCallback(() => {
+    void loadAccounts(true);
+  }, [loadAccounts]);
+
+  useDraftsSynced(refreshAccounts);
 
   function openFooter(account: MailAccount) {
     setError("");

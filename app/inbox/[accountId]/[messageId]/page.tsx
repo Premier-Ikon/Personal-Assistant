@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import MailNav from "../../../../components/MailNav";
 import RequireAuth from "../../../../components/RequireAuth";
 import WorkflowPipeline from "../../../../components/WorkflowPipeline";
+import ActionTagSelect from "../../../../components/ActionTagSelect";
 import { ActionPlan, Draft, MailAccount, MailMessage, ShippingAddress, apiRequest } from "../../../../lib/api";
 import { useAuth } from "../../../../lib/AuthProvider";
+import { useDraftsSynced } from "../../../../lib/draftsSync";
 
 function blankAddress(): ShippingAddress {
   return {
@@ -44,7 +46,7 @@ export default function MessagePage() {
   const [working, setWorking] = useState("");
   const [confirmRun, setConfirmRun] = useState(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!token) return;
     setBusy(true);
     setError("");
@@ -76,11 +78,13 @@ export default function MessagePage() {
     } finally {
       setBusy(false);
     }
-  }
+  }, [token, params.accountId, params.messageId]);
 
   useEffect(() => {
     load();
-  }, [token, params.accountId, params.messageId]);
+  }, [load]);
+
+  useDraftsSynced(load);
 
   async function generate() {
     if (!token) return;
@@ -109,6 +113,38 @@ export default function MessagePage() {
       setNotice(`Draft ready from ${via}. Edit anything before it sends.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not generate a draft");
+    } finally {
+      setWorking("");
+    }
+  }
+
+  async function assignTag(actionType: string) {
+    if (!token || !message) return;
+    setWorking("tag");
+    setError("");
+    setNotice("");
+    try {
+      const result = await apiRequest<{ actionPlan: ActionPlan | null }>(token, {
+        action: "assignActionTag",
+        accountId: params.accountId,
+        messageId: params.messageId,
+        actionType,
+      });
+      setPlan(result.actionPlan);
+      if (result.actionPlan?.extractedAddress) {
+        setAddress({ ...blankAddress(), ...result.actionPlan.extractedAddress });
+      } else if (!result.actionPlan) {
+        setAddress(blankAddress());
+      }
+      setNotice(
+        result.actionPlan
+          ? `Tagged as ${result.actionPlan.typeLabel}. ${
+              result.actionPlan.type === "address_change" ? "The address workflow is ready to execute." : "The workflow is on this email."
+            }`
+          : "Workflow tag cleared."
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not assign that tag");
     } finally {
       setWorking("");
     }
@@ -203,9 +239,16 @@ export default function MessagePage() {
               : "Review the incoming note, then generate and send the reply as this mailbox."}
           </p>
         </div>
-        <button className="primary" disabled={Boolean(working) || !message} onClick={generate}>
-          {working === "draft" ? "Writing…" : "Generate reply"}
-        </button>
+        <div className="page-head-actions">
+          <ActionTagSelect
+            value={plan?.type || "none"}
+            disabled={Boolean(working) || !message}
+            onChange={assignTag}
+          />
+          <button className="primary" disabled={Boolean(working) || !message} onClick={generate}>
+            {working === "draft" ? "Writing…" : "Generate reply"}
+          </button>
+        </div>
       </div>
       {error ? <p className="error">{error}</p> : null}
       {notice ? <p className="notice">{notice}</p> : null}

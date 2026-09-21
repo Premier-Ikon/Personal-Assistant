@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../lib/AuthProvider";
+import GenerateDraftsButton from "./GenerateDraftsButton";
 import Walkthrough from "./Walkthrough";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -44,7 +45,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
       </aside>
-      <main className="main">{children}</main>
+      <main className="main">
+        <GenerateDraftsButton />
+        {children}
+      </main>
       {profile?.email ? (
         <Walkthrough email={profile.email} forceOpen={tourOpen} onClose={() => setTourOpen(false)} />
       ) : null}
