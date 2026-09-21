@@ -7,6 +7,7 @@ import MailNav from "../../../../components/MailNav";
 import RequireAuth from "../../../../components/RequireAuth";
 import WorkflowPipeline from "../../../../components/WorkflowPipeline";
 import ActionTagSelect from "../../../../components/ActionTagSelect";
+import WorkOverlay from "../../../../components/WorkOverlay";
 import { ActionPlan, Draft, MailAccount, MailMessage, ShippingAddress, apiRequest } from "../../../../lib/api";
 import { useAuth } from "../../../../lib/AuthProvider";
 import { useDraftsSynced } from "../../../../lib/draftsSync";
@@ -22,6 +23,46 @@ function blankAddress(): ShippingAddress {
     postalCode: "",
     country: "US",
   };
+}
+
+function verificationCopy(plan: ActionPlan | null) {
+  const status = plan?.addressVerification?.status;
+  const formatted = plan?.addressVerification?.formatted;
+  if (status === "verified") {
+    return {
+      badge: "Verified with Google",
+      badgeClass: "ok",
+      detail: formatted
+        ? `Google confirmed ${formatted}. Edit any field if a unit, name, or phone is still off.`
+        : "Google confirmed this address. Edit any field if a unit, name, or phone is still off.",
+    };
+  }
+  if (status === "partial") {
+    return {
+      badge: "Google match",
+      badgeClass: "warn",
+      detail: formatted
+        ? `Google matched this to ${formatted}. Adjust anything that looks wrong before you run the workflow.`
+        : "Google found a close match. Adjust anything that looks wrong before you run the workflow.",
+    };
+  }
+  return {
+    badge: "Needs review",
+    badgeClass: "neutral",
+    detail: "We pulled this from the email. Edit any field if it is wrong — the workflow uses what you save here.",
+  };
+}
+
+function tagNotice(plan: ActionPlan | null) {
+  if (!plan) return "Workflow tag cleared.";
+  if (plan.type !== "address_change") return `Tagged as ${plan.typeLabel}. The workflow is on this email.`;
+  if (!plan.extractedAddress?.address1) {
+    return `Tagged as ${plan.typeLabel}. The address workflow is ready — add the street if it is still empty.`;
+  }
+  if (plan.addressVerification?.status === "verified") {
+    return `Tagged as ${plan.typeLabel}. The shipping address was pulled from this email and confirmed with Google. You can still edit it.`;
+  }
+  return `Tagged as ${plan.typeLabel}. The shipping address was pulled from this email. Edit it if anything looks off.`;
 }
 
 function queuedPlan(plan: ActionPlan): ActionPlan {
@@ -138,17 +179,7 @@ export default function MessagePage() {
       } else if (!result.actionPlan) {
         setAddress(blankAddress());
       }
-      setNotice(
-        result.actionPlan
-          ? `Tagged as ${result.actionPlan.typeLabel}. ${
-              result.actionPlan.type === "address_change"
-                ? result.actionPlan.extractedAddress?.address1
-                  ? "The shipping address was pulled from this email."
-                  : "The address workflow is ready — add the street if it is still empty."
-                : "The workflow is on this email."
-            }`
-          : "Workflow tag cleared."
-      );
+      setNotice(tagNotice(result.actionPlan));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not assign that tag");
     } finally {
@@ -225,9 +256,20 @@ export default function MessagePage() {
 
   const inboxHref = `/inbox/${params.accountId}`;
   const clientLabel = account?.clientName || "Inbox";
+  const verify = plan?.type === "address_change" ? verificationCopy(plan) : null;
 
   return (
     <RequireAuth>
+      {working === "tag" ? (
+        <WorkOverlay
+          title="Reading this email"
+          detail={
+            pendingTag === "address_change"
+              ? "Parsing the shipping address and checking it with Google."
+              : "Updating the workflow on this thread."
+          }
+        />
+      ) : null}
       <MailNav
         backHref={inboxHref}
         backLabel="All emails"
@@ -273,19 +315,6 @@ export default function MessagePage() {
             <div className="email-body">{message.bodyText || message.snippet}</div>
           </section>
           <section className="panel assistant-pane">
-            {working === "tag" ? (
-              <div className="work-overlay" aria-live="polite">
-                <div className="work-overlay-card">
-                  <span className="spinner" />
-                  Reading this email
-                  <span>
-                    {pendingTag === "address_change"
-                      ? "Pulling the shipping address into the form for your team."
-                      : "Updating the workflow on this thread."}
-                  </span>
-                </div>
-              </div>
-            ) : null}
             <p className="pane-kicker">Assistant</p>
             <h2>Reply</h2>
             {draft.provider ? (
@@ -326,7 +355,12 @@ export default function MessagePage() {
             {plan ? (
               <div style={{ marginTop: 28 }}>
                 {plan.type === "address_change" ? (
-                  <div className="address-grid">
+                  <>
+                    <div className="address-verify">
+                      <p>{verify?.detail}</p>
+                      <span className={`badge ${verify?.badgeClass}`}>{verify?.badge}</span>
+                    </div>
+                    <div className="address-grid">
                     <label>
                       Name
                       <input
@@ -377,6 +411,7 @@ export default function MessagePage() {
                       />
                     </label>
                   </div>
+                  </>
                 ) : null}
                 <WorkflowPipeline
                   plan={plan}

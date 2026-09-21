@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import MailNav from "../../../components/MailNav";
 import RequireAuth from "../../../components/RequireAuth";
 import ActionTagSelect from "../../../components/ActionTagSelect";
+import WorkOverlay from "../../../components/WorkOverlay";
 import { ActionPlan, MailAccount, MailMessage, apiRequest } from "../../../lib/api";
 import { useAuth } from "../../../lib/AuthProvider";
 import { useDraftsSynced } from "../../../lib/draftsSync";
@@ -75,6 +76,16 @@ export default function InboxPage() {
 
   return (
     <RequireAuth>
+      {tagging ? (
+        <WorkOverlay
+          title={taggingType === "address_change" ? "Reading this email" : "Updating workflow"}
+          detail={
+            taggingType === "address_change"
+              ? "Parsing the shipping address and checking it with Google."
+              : "Saving the workflow tag on this thread."
+          }
+        />
+      ) : null}
       <MailNav
         backHref="/"
         backLabel="Clients"
@@ -97,12 +108,6 @@ export default function InboxPage() {
       <div className="inbox-list">
         {messages.map((message) => (
           <div className={`row-card message-row ${message.unread ? "unread" : ""} ${tagging === message.id ? "tagging" : ""}`} key={message.id}>
-            {tagging === message.id ? (
-              <div className="row-busy" aria-live="polite">
-                <span className="spinner small" />
-                {taggingType === "address_change" ? "Reading this email for the shipping address…" : "Updating workflow…"}
-              </div>
-            ) : null}
             <Link href={`/inbox/${accountId}/${message.id}`} className="message-row-main">
               <div className="from">{message.from}</div>
               <h3>{message.subject || "(no subject)"}</h3>

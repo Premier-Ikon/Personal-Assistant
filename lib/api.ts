@@ -109,6 +109,12 @@ export type ActionPlan = {
   status: string;
   extractedAddress?: ShippingAddress;
   extractedOrderNumber?: string;
+  addressVerification?: {
+    status?: string;
+    formatted?: string;
+    source?: string;
+    note?: string;
+  } | null;
   execution?: ActionExecution | null;
   createdAt?: string | null;
 };
