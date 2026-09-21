@@ -38,7 +38,6 @@ function SettingsInner() {
   const [memberRole, setMemberRole] = useState<"member" | "admin">("member");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [resetLink, setResetLink] = useState("");
   const [busy, setBusy] = useState("");
 
   async function loadAccounts() {
@@ -103,16 +102,14 @@ function SettingsInner() {
     if (!token) return;
     setBusy("team");
     setError("");
-    setResetLink("");
     try {
-      const result = await apiRequest<{ resetLink?: string | null }>(token, {
+      await apiRequest<{ emailSent?: boolean }>(token, {
         action: "addTeamMember",
         email: memberEmail,
         role: memberRole,
       });
       setMemberEmail("");
-      setNotice("Team member added. Share the password setup link if one was created.");
-      setResetLink(result.resetLink || "");
+      setNotice("Team member added. We emailed them a link to set their password.");
       await loadTeam();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not add that teammate");
@@ -215,11 +212,6 @@ function SettingsInner() {
                   <button className="primary" disabled={busy === "team"} type="submit">
                     Add teammate
                   </button>
-                  {resetLink ? (
-                    <p className="notice" style={{ marginTop: 12, wordBreak: "break-all" }}>
-                      Password setup: {resetLink}
-                    </p>
-                  ) : null}
                 </form>
               ) : (
                 <div className="panel">Only admins can add teammates.</div>

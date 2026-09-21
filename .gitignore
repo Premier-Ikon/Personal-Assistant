@@ -17,3 +17,4 @@ shopify.app.*.toml
 firebase.json
 firestore.rules
 firestore.indexes.json
+.env*

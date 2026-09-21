@@ -2,8 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { sendPasswordResetEmail } from "firebase/auth";
-import { getFirebaseAuth } from "../../lib/firebase";
+import { publicApiRequest } from "../../lib/api";
 import { authErrorMessage, useAuth } from "../../lib/AuthProvider";
 
 export default function LoginPage() {
@@ -69,10 +68,10 @@ export default function LoginPage() {
             setError("");
             setNotice("");
             try {
-              await sendPasswordResetEmail(getFirebaseAuth(), email.trim());
-              setNotice("Reset email sent. Google’s page will error — replace the host with http://localhost:3002/auth/action and keep everything after the question mark.");
+              await publicApiRequest({ action: "sendPasswordReset", email: email.trim() });
+              setNotice("Check your email for a password link. It opens this app so you can choose a new password.");
             } catch (err) {
-              setError(authErrorMessage(err));
+              setError(err instanceof Error ? err.message : authErrorMessage(err));
             } finally {
               setBusy(false);
             }

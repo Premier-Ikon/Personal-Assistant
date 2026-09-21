@@ -1,17 +1,23 @@
 "use client";
 
-import { FormEvent, Suspense, useEffect, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { confirmPasswordReset, verifyPasswordResetCode } from "firebase/auth";
 import { getFirebaseAuth } from "../../../lib/firebase";
 import { authErrorMessage } from "../../../lib/AuthProvider";
 
+function readHashParams() {
+  if (typeof window === "undefined") return new URLSearchParams();
+  return new URLSearchParams(window.location.hash.replace(/^#/, ""));
+}
+
 function ResetPasswordForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const oobCode = params.get("oobCode") || "";
-  const mode = params.get("mode") || "resetPassword";
+  const [hashParams, setHashParams] = useState<URLSearchParams>(() => new URLSearchParams());
+  const oobCode = params.get("oobCode") || hashParams.get("oobCode") || "";
+  const mode = (params.get("mode") || hashParams.get("mode") || (oobCode ? "resetPassword" : "")).toLowerCase();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [email, setEmail] = useState("");
@@ -19,10 +25,22 @@ function ResetPasswordForm() {
   const [busy, setBusy] = useState(false);
   const [checked, setChecked] = useState(false);
 
-  const invalidMode = Boolean(mode && mode !== "resetPassword");
+  useEffect(() => {
+    setHashParams(readHashParams());
+  }, []);
+
+  const isReset = !mode || mode === "resetpassword";
+  const otherMode = Boolean(mode && !isReset);
+
+  const statusCopy = useMemo(() => {
+    if (otherMode && mode === "verifyemail") return "Your email is verified. You can sign in.";
+    if (otherMode && mode === "recoveremail") return "Your email address was restored. You can sign in.";
+    if (otherMode) return "This email link is not a password setup link. Request a new one from the sign-in page.";
+    return "";
+  }, [mode, otherMode]);
 
   useEffect(() => {
-    if (!oobCode || invalidMode) {
+    if (!oobCode || !isReset) {
       setChecked(true);
       return;
     }
@@ -43,7 +61,7 @@ function ResetPasswordForm() {
     return () => {
       cancelled = true;
     };
-  }, [oobCode, invalidMode]);
+  }, [oobCode, isReset]);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -75,13 +93,11 @@ function ResetPasswordForm() {
         <p>
           {email
             ? `Choose a password for ${email}, then sign in to Personal Assistant.`
-            : "Choose a password for info@necti.io, then sign in to Personal Assistant."}
+            : "Choose a password, then sign in to Personal Assistant."}
         </p>
-        {invalidMode ? <p className="error">This link is not a password reset link.</p> : null}
-        {!oobCode ? (
-          <p className="error">
-            Open the reset link from the email while this app is running, or request a new one from the sign-in page.
-          </p>
+        {statusCopy ? <p className="error">{statusCopy}</p> : null}
+        {!oobCode && isReset ? (
+          <p className="error">Open the password link from your email, or request a new one from the sign-in page.</p>
         ) : null}
         {error ? <p className="error">{error}</p> : null}
         <label>
@@ -93,7 +109,7 @@ function ResetPasswordForm() {
             onChange={(event) => setPassword(event.target.value)}
             minLength={8}
             required
-            disabled={!oobCode || Boolean(invalidMode)}
+            disabled={!oobCode || !isReset}
           />
         </label>
         <label>
@@ -105,10 +121,10 @@ function ResetPasswordForm() {
             onChange={(event) => setConfirm(event.target.value)}
             minLength={8}
             required
-            disabled={!oobCode || Boolean(invalidMode)}
+            disabled={!oobCode || !isReset}
           />
         </label>
-        <button className="primary full" disabled={busy || !checked || !oobCode || Boolean(invalidMode)} type="submit">
+        <button className="primary full" disabled={busy || !checked || !oobCode || !isReset} type="submit">
           {busy ? "Saving…" : "Save password"}
         </button>
         <p style={{ marginTop: 16, marginBottom: 0 }}>

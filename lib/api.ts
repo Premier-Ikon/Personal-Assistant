@@ -8,18 +8,19 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiRequest<T>(token: string, body: Record<string, unknown>): Promise<T> {
+async function postApi<T>(body: Record<string, unknown>, token?: string): Promise<T> {
   if (!API_URL) {
     throw new ApiError("API URL is not configured", 500);
   }
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
   let response: Response;
   try {
     response = await fetch(API_URL, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(body),
     });
   } catch {
@@ -30,6 +31,14 @@ export async function apiRequest<T>(token: string, body: Record<string, unknown>
     throw new ApiError(payload.error || "Request failed", response.status);
   }
   return payload;
+}
+
+export async function publicApiRequest<T>(body: Record<string, unknown>): Promise<T> {
+  return postApi<T>(body);
+}
+
+export async function apiRequest<T>(token: string, body: Record<string, unknown>): Promise<T> {
+  return postApi<T>(body, token);
 }
 
 export type TeamUser = {
