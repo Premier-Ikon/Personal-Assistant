@@ -201,7 +201,7 @@ export default function MessagePage() {
         replySubject: draft.replySubject,
         replyBody: draft.replyBody,
       });
-      setNotice("Sent from the connected mailbox.");
+      setNotice("Sent in the original email thread from the connected mailbox.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send");
     } finally {
@@ -352,6 +352,9 @@ export default function MessagePage() {
                 All emails
               </Link>
             </div>
+            <p className="snippet" style={{ marginTop: 8, marginBottom: 0 }}>
+              Sends as a reply on the original customer thread, not a new email.
+            </p>
             {plan ? (
               <div style={{ marginTop: 28 }}>
                 {plan.type === "address_change" ? (
